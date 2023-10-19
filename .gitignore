@@ -1,0 +1,7 @@
+data.db
+identifier.sqlite
+txt/sorted.txt
+txt/unchanged_products.txt
+.idea
+__pycache__
+txt/firstData.txt
