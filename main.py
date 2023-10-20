@@ -3,7 +3,6 @@ import json
 import sqlite3
 import os
 
-
 def process_and_parse_data(input_file):
     parsed_data = []
 
@@ -13,7 +12,7 @@ def process_and_parse_data(input_file):
             if len(parts) < 6:
                 raise ValueError("Unexpected data structure")
 
-            date_time, _, _, product_id, _, json_data = parts
+            _, date_time, _, seller_id, _, json_data = parts
 
             try:
                 payload = json.loads(json_data)
@@ -21,7 +20,7 @@ def process_and_parse_data(input_file):
                     qty = product.get('qty')
                     sku = product.get('sku')
                     if qty is not None:
-                        parsed_data.append((date_time, product_id, qty, sku))
+                        parsed_data.append((date_time, seller_id, qty, sku))
             except json.JSONDecodeError as e:
                 raise e
 
@@ -41,11 +40,11 @@ def write_to_database(data):
 def generate_stock_changes():
     sku_cache = {}
 
-    conn = sqlite3.connect('data.db')
-    cursor = conn.cursor()
+    with sqlite3.connect('data.db') as conn:
+        cursor = conn.cursor()
 
-    cursor.execute('SELECT sku, qty FROM products ORDER BY sku, created_at')
-    rows = cursor.fetchall()
+        cursor.execute('SELECT sku, qty FROM products ORDER BY sku, created_at')
+        rows = cursor.fetchall()
 
     current_sku = None
     previous_qty = None
@@ -76,10 +75,54 @@ def generate_stock_changes():
 
 def find_stable_products():
     with open("txt/sorted.txt", "r") as file:
-        unchanged_products = [line.split(": ")[0] for line in file if line.count(" - ") == 0]
+        unchanged_products = [line.split(": ")[0] for line in file if " - " not in line]
+
+    created_at_dict = {}
+    with sqlite3.connect('data.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute("CREATE INDEX IF NOT EXISTS sku_index ON products (sku);")
+
+        for product in unchanged_products:
+            cursor.execute("SELECT created_at FROM products WHERE sku=?", (product,))
+            created_at = cursor.fetchall()
+            if created_at:
+                created_at_dict[product] = created_at[0][0]
+            else:
+                created_at_dict[product] = "N/A"
 
     with open("txt/unchanged_products.txt", "w") as file:
-        file.write("\n".join(unchanged_products))
+        for product, created_at in created_at_dict.items():
+            file.write(f"SKU: {product} - Date: {created_at}\n")
+
+def calculate_total_sales(data):
+    parts = data.split(": ")
+    product_code = parts[0]
+    sales = list(map(int, parts[1].split(" - ")))
+    total_sales = max(sales) - min(sales)
+    return f"{product_code}   Total Sales: {total_sales}\n"
+
+def process_sorted_file():
+    input_file_path = 'txt/sorted.txt'
+    output_file_path = 'txt/totalSales.txt'
+
+    def check_stock_decrease(file_path):
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+            results = []
+
+            for line in lines:
+                results.append(calculate_total_sales(line.strip()))
+
+            return results
+
+    results = check_stock_decrease(input_file_path)
+
+    if results:
+        with open(output_file_path, 'w') as file:
+            file.writelines(results)
+    else:
+        with open(output_file_path, 'w') as file:
+            pass
 
 
 if __name__ == "__main__":
@@ -89,6 +132,8 @@ if __name__ == "__main__":
         print("Database writing operation completed.")
         generate_stock_changes()
         print("Sorted file creation operation completed.")
+        process_sorted_file()
+        print("Total Sales file creation operation completed.")
         find_stable_products()
         print("Finding stable products operation completed.")
     except FileNotFoundError as e:
