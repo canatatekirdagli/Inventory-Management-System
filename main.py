@@ -26,6 +26,11 @@ def process_and_parse_data(input_file):
 
     return parsed_data
 
+def write_parsed_data_to_file(data):
+    with open("txt/parsedData.txt", 'w', encoding='utf-8') as f:
+        for entry in data:
+            date_time, seller_id, qty, sku = entry
+            f.write(f"Date: {date_time}, seller_id: {seller_id}, qty: {qty}, sku: {sku}\n")
 
 def write_to_database(data):
     with sqlite3.connect('data.db') as conn:
@@ -128,6 +133,9 @@ def process_sorted_file():
 if __name__ == "__main__":
     try:
         parsed_data = process_and_parse_data('txt/firstData.txt')
+        print("Parsing data operation completed.")
+        write_parsed_data_to_file(parsed_data)
+        print("Parsed Data file creation operation completed.")
         write_to_database(parsed_data)
         print("Database writing operation completed.")
         generate_stock_changes()
