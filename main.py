@@ -6,7 +6,6 @@ import os
 
 def process_and_parse_data(input_file):
     parsed_data = []
-
     with open(input_file, 'r', encoding='utf-8') as f:
         for transaction in f:
             parts = re.split(r',', transaction.strip(), maxsplit=5)
@@ -14,7 +13,6 @@ def process_and_parse_data(input_file):
                 raise ValueError("Unexpected data structure")
 
             _, date_time, _, seller_id, _, json_data = parts
-
             try:
                 payload = json.loads(json_data)
                 for product in payload:
@@ -24,7 +22,6 @@ def process_and_parse_data(input_file):
                         parsed_data.append((date_time, seller_id, qty, sku))
             except json.JSONDecodeError as e:
                 raise e
-
     return parsed_data
 def write_parsed_data_to_file(data):
     with open("txt/parsedData.txt", 'w', encoding='utf-8') as f:
@@ -58,7 +55,6 @@ def write_to_database(data):
                         (created_at TEXT, seller_id INTEGER, qty INTEGER, sku TEXT)''')
 
         cursor.executemany('INSERT INTO products VALUES (?, ?, ?, ?)', data)
-
 
 def generate_stock_changes():
     with sqlite3.connect('data.db') as conn:
